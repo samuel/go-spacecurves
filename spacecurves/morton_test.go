@@ -82,6 +82,44 @@ func TestMortonToHilbert3D(t *testing.T) {
 	}
 }
 
+func TestDisplayMorton2D(t *testing.T) {
+	const bits = 5
+	const n = 1 << bits
+	var out [(2 * n) * (2 * n)]byte
+	for i := 0; i < len(out); i++ {
+		out[i] = ' '
+	}
+	out[0] = '+'
+	lastX, lastY := Morton2DDecode(bits, 0)
+	for d := uint(1); d < n*n; d++ {
+		x, y := Morton2DDecode(bits, d)
+		o := y*n*4 + x*2
+		out[o] = '+'
+		switch {
+		case lastX < x && lastY < y:
+			out[o-1-n*2] = '\\'
+		case lastX < x && lastY > y:
+			out[o-1+n*2] = '/'
+		case lastX > x && lastY < y:
+			out[o+1-n*2] = '/'
+		case lastX > x && lastY > x:
+			out[o+1+n*2] = '\\'
+		case lastX < x:
+			out[o-1] = '-'
+		case lastX > x:
+			out[o+1] = '-'
+		case lastY < y:
+			out[o-n*2] = '|'
+		case lastY > y:
+			out[o+n*2] = '|'
+		}
+		lastX, lastY = x, y
+	}
+	for y := 0; y < n*2; y++ {
+		t.Logf("%s\n", string(out[y*n*2:y*n*2+n*2]))
+	}
+}
+
 func BenchmarkMorton2DEncode_5(b *testing.B) {
 	const n = 5
 	for i := 0; i < b.N; i++ {
