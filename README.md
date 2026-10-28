@@ -40,4 +40,4 @@ For spatial indexes stored in curve order:
 License
 -------
 
-3-clause BSD. See LICENSE file.
+MIT. See LICENSE file.
