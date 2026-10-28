@@ -28,6 +28,12 @@ codes and `Hilbert2DEncode` indices.
 Usage
 -----
 
+```sh
+go get samuelks.com/spacecurves
+```
+
+Requires Go 1.24 or later.
+
 ```go
 d := spacecurves.Hilbert2DEncode(16, x, y) // 16 bits per axis
 x, y = spacecurves.Hilbert2DDecode(16, d)

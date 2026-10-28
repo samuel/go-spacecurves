@@ -1,9 +1,9 @@
 # Changelog
 
-## 1.0.0 (unreleased)
+## 1.0.0 (2026-10-27)
 
 First stable release. Curve outputs are now fixed, so stored indices stay valid
-across releases.
+across releases. Requires Go 1.24 or later.
 
 ### Added
 
