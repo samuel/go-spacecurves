@@ -1,3 +1,3 @@
-module github.com/samuel/go-spacecurves
+module samuelks.com/spacecurves
 
 go 1.26

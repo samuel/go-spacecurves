@@ -1,7 +1,7 @@
 Space-filling Curves for Go
 ===========================
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/samuel/go-spacecurves/spacecurves.svg)](https://pkg.go.dev/github.com/samuel/go-spacecurves/spacecurves)
+[![Go Reference](https://pkg.go.dev/badge/samuelks.com/spacecurves/spacecurves.svg)](https://pkg.go.dev/samuelks.com/spacecurves)
 
 Package spacecurves implements [space-filling curves](https://en.wikipedia.org/wiki/Space-filling_curve)
 to encode/decode multi-dimensional points into single values along a curve. Different
