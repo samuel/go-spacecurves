@@ -1,11 +1,17 @@
 package spacecurves
 
+import "math"
+
+// mask3D selects the middle bit of each 3-bit group, truncated to the width of uint.
+const mask3D = uint(0x2492492492492492 & math.MaxUint)
+
 // Morton2DEncode encodes a 2D x,y pair into a single value along
-// a Z-order curve of the specified number of bits.
+// a Z-order curve of the specified number of bits per axis (at most 32
+// on 64-bit platforms).
 func Morton2DEncode(bits, x, y uint) uint {
 	var answer uint
 	s := uint(1)
-	for i := uint(0); i < bits; i++ {
+	for i := range bits {
 		answer |= (x & s) << i
 		answer |= (y & s) << (i + 1)
 		s <<= 1
@@ -14,11 +20,12 @@ func Morton2DEncode(bits, x, y uint) uint {
 }
 
 // Morton3DEncode encodes a 3D x,y,z point into a single value along
-// a Z-order curve of the specified number of bits.
+// a Z-order curve of the specified number of bits per axis (at most 21
+// on 64-bit platforms).
 func Morton3DEncode(bits, x, y, z uint) uint {
 	var answer uint
 	s := uint(1)
-	for i := uint(0); i < bits; i++ {
+	for i := range bits {
 		answer |= (x & s) << (2 * i)
 		answer |= (y & s) << (2*i + 1)
 		answer |= (z & s) << (2*i + 2)
@@ -28,11 +35,11 @@ func Morton3DEncode(bits, x, y, z uint) uint {
 }
 
 // Morton2DDecode decodes a value along a Z-order curve
-// of the specified number of bits into a 2D x,y pair.
-func Morton2DDecode(n, d uint) (uint, uint) {
+// of the specified number of bits per axis into a 2D x,y pair.
+func Morton2DDecode(bits, d uint) (uint, uint) {
 	var x, y uint
 	s := uint(1)
-	for i := uint(0); i < n; i++ {
+	for i := range bits {
 		x |= (d >> i) & s
 		y |= (d >> (i + 1)) & s
 		s <<= 1
@@ -41,11 +48,11 @@ func Morton2DDecode(n, d uint) (uint, uint) {
 }
 
 // Morton3DDecode decodes a value along a Z-order curve
-// of the specified number of bits into a 3D x,y,z point.
-func Morton3DDecode(n, d uint) (uint, uint, uint) {
+// of the specified number of bits per axis into a 3D x,y,z point.
+func Morton3DDecode(bits, d uint) (uint, uint, uint) {
 	var x, y, z uint
 	s := uint(1)
-	for i := uint(0); i < n; i++ {
+	for i := range bits {
 		x |= (d >> (i * 2)) & s
 		y |= (d >> (i*2 + 1)) & s
 		z |= (d >> (i*2 + 2)) & s
@@ -55,8 +62,11 @@ func Morton3DDecode(n, d uint) (uint, uint, uint) {
 }
 
 // MortonToHilbert2D transforms a 2D point along a Morton Z-order
-// curve to a point along a Hilbert space-filling curve.
-func MortonToHilbert2D(morton, bits uint) uint {
+// curve of the specified number of bits per axis (at most 32 on 64-bit
+// platforms) to a point along a Hilbert space-filling curve. The resulting
+// curve is the transpose of Hilbert2DEncode: the Morton code for (x, y)
+// maps to Hilbert2DEncode(bits, y, x).
+func MortonToHilbert2D(bits, morton uint) uint {
 	hilbert := uint(0)
 	remap := uint(0xb4)
 	block := bits << 1
@@ -70,9 +80,8 @@ func MortonToHilbert2D(morton, bits uint) uint {
 	return hilbert
 }
 
-// HilbertToMorton2D transforms a 2D point along a Hilbert space-filling
-// curve to a point along a Morton Z-order curve.
-func HilbertToMorton2D(hilbert, bits uint) uint {
+// HilbertToMorton2D is the inverse of MortonToHilbert2D.
+func HilbertToMorton2D(bits, hilbert uint) uint {
 	morton := uint(0)
 	remap := uint(0xb4)
 	block := bits << 1
@@ -87,8 +96,9 @@ func HilbertToMorton2D(hilbert, bits uint) uint {
 }
 
 // MortonToHilbert3D transforms a 3D point along a Morton Z-order
-// curve to a point along a Hilbert space-filling curve.
-func MortonToHilbert3D(morton, bits uint) uint {
+// curve of the specified number of bits per axis (at most 21 on 64-bit
+// platforms) to a point along a Hilbert space-filling curve.
+func MortonToHilbert3D(bits, morton uint) uint {
 	hilbert := morton
 	if bits > 1 {
 		block := (bits * 3) - 3
@@ -109,17 +119,16 @@ func MortonToHilbert3D(morton, bits uint) uint {
 			hilbert ^= (mcode ^ hcode) << block
 		}
 	}
-	hilbert ^= (hilbert >> 1) & 0x92492492
-	hilbert ^= (hilbert & 0x92492492) >> 1
+	hilbert ^= (hilbert >> 1) & mask3D
+	hilbert ^= (hilbert & mask3D) >> 1
 	return hilbert
 }
 
-// HilbertToMorton3D transforms a 3D point along a Hilbert space-filling
-// curve to a point along a Morton Z-order curve.
-func HilbertToMorton3D(hilbert, bits uint) uint {
+// HilbertToMorton3D is the inverse of MortonToHilbert3D.
+func HilbertToMorton3D(bits, hilbert uint) uint {
 	morton := hilbert
-	morton ^= (morton & 0x92492492) >> 1
-	morton ^= (morton >> 1) & 0x92492492
+	morton ^= (morton & mask3D) >> 1
+	morton ^= (morton >> 1) & mask3D
 	if bits > 1 {
 		block := ((bits * 3) - 3)
 		hcode := ((morton >> block) & 7)
@@ -143,7 +152,7 @@ func HilbertToMorton3D(hilbert, bits uint) uint {
 }
 
 // Morton2DEncode5bit transforms a 2D point into a value along
-// a 5-bit Morton space-filling curve. It is more optimal than
+// a 5-bit Morton space-filling curve. It is faster than
 // the generic Morton2DEncode.
 func Morton2DEncode5bit(x, y uint) uint {
 	x &= 0x0000001f
@@ -160,7 +169,7 @@ func Morton2DEncode5bit(x, y uint) uint {
 }
 
 // Morton2DDecode5bit transforms a point along a 5-bit Morton
-// space-filling curve into a 2D point. It is more efficient than
+// space-filling curve into a 2D point. It is faster than
 // the generic Morton2DDecode.
 func Morton2DDecode5bit(morton uint) (uint, uint) {
 	value1 := morton
@@ -183,7 +192,7 @@ func Morton2DDecode5bit(morton uint) (uint, uint) {
 }
 
 // Morton2DEncode16bit transforms a 2D point into a value along
-// a 16-bit Morton space-filling curve. It is more efficient than
+// a 16-bit Morton space-filling curve. It is faster than
 // the generic Morton2DEncode.
 func Morton2DEncode16bit(x, y uint) uint {
 	x &= 0x0000ffff
@@ -208,7 +217,7 @@ func Morton2DEncode16bit(x, y uint) uint {
 }
 
 // Morton2DDecode16bit transforms a point along a 16-bit Morton
-// space-filling curve into a 2D point. It is more efficient than
+// space-filling curve into a 2D point. It is faster than
 // the generic Morton2DDecode.
 func Morton2DDecode16bit(morton uint) (uint, uint) {
 	value1 := morton
@@ -235,8 +244,8 @@ func Morton2DDecode16bit(morton uint) (uint, uint) {
 }
 
 // Morton3DEncode5bit transforms a 3D point into a value along
-// a 5-bit Morton space-filling curve. It is more optimal than
-// the generic Morton2DEncode.
+// a 5-bit Morton space-filling curve. It is faster than
+// the generic Morton3DEncode.
 func Morton3DEncode5bit(x, y, z uint) uint {
 	x &= 0x0000001f
 	y &= 0x0000001f
@@ -257,8 +266,8 @@ func Morton3DEncode5bit(x, y, z uint) uint {
 }
 
 // Morton3DDecode5bit transforms a point along a 5-bit Morton
-// space-filling curve into a 3D point. It is more efficient than
-// the generic Morton2DDecode.
+// space-filling curve into a 3D point. It is faster than
+// the generic Morton3DDecode.
 func Morton3DDecode5bit(morton uint) (uint, uint, uint) {
 	value1 := morton
 	value2 := value1 >> 1
@@ -288,8 +297,8 @@ func Morton3DDecode5bit(morton uint) (uint, uint, uint) {
 }
 
 // Morton3DEncode10bit transforms a 3D point into a value along
-// a 10-bit Morton space-filling curve. It is more optimal than
-// the generic Morton2DEncode.
+// a 10-bit Morton space-filling curve. It is faster than
+// the generic Morton3DEncode.
 func Morton3DEncode10bit(x, y, z uint) uint {
 	x &= 0x000003ff
 	y &= 0x000003ff
@@ -322,8 +331,8 @@ func Morton3DEncode10bit(x, y, z uint) uint {
 }
 
 // Morton3DDecode10bit transforms a point along a 10-bit Morton
-// space-filling curve into a 3D point. It is more efficient than
-// the generic Morton2DDecode.
+// space-filling curve into a 3D point. It is faster than
+// the generic Morton3DDecode.
 func Morton3DDecode10bit(morton uint) (uint, uint, uint) {
 	value1 := morton
 	value2 := value1 >> 1

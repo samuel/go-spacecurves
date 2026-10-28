@@ -1,7 +1,8 @@
 package spacecurves
 
 // Hilbert2DEncode encodes a 2D x,y pair into a single value along
-// a Hilbert space-filling curve of the specified number of bits.
+// a Hilbert space-filling curve of the specified number of bits per axis
+// (at most 32 on 64-bit platforms).
 func Hilbert2DEncode(bits, x, y uint) uint {
 	d := uint(0)
 	for s := uint(1<<bits) / 2; s > 0; s /= 2 {
@@ -19,7 +20,7 @@ func Hilbert2DEncode(bits, x, y uint) uint {
 }
 
 // Hilbert2DDecode decodes a value along a Hilbert space-filling curve
-// of the specified number of bits into a 2D x,y pair.
+// of the specified number of bits per axis into a 2D x,y pair.
 func Hilbert2DDecode(bits, d uint) (uint, uint) {
 	var x, y uint
 	n := uint(1 << bits)
