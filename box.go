@@ -8,7 +8,7 @@ import (
 
 // Range is an inclusive range of curve indices.
 type Range struct {
-	First, Last uint
+	First, Last uint64
 }
 
 // Morton2DNextInBox returns the smallest index on a 2D Z-order curve of the
@@ -16,7 +16,8 @@ type Range struct {
 // in the box minX <= x <= maxX, minY <= y <= maxY. It returns false if there
 // is none. When d is outside the box this is the BIGMIN of Tropf and Herzog,
 // which lets a scan in Morton order skip to the next point in the box.
-func Morton2DNextInBox(bits, d, minX, minY, maxX, maxY uint) (uint, bool) {
+func Morton2DNextInBox(bits uint, d, minX, minY, maxX, maxY uint64) (uint64, bool) {
+	checkBits(bits, 2)
 	minX, maxX, okX := clampAxis(bits, minX, maxX)
 	minY, maxY, okY := clampAxis(bits, minY, maxY)
 	if !okX || !okY || d > lowMask(2*bits) {
@@ -32,7 +33,8 @@ func Morton2DNextInBox(bits, d, minX, minY, maxX, maxY uint) (uint, bool) {
 // specified number of bits per axis that is at most d and whose point lies
 // in the box minX <= x <= maxX, minY <= y <= maxY. It returns false if there
 // is none. When d is outside the box this is the LITMAX of Tropf and Herzog.
-func Morton2DPrevInBox(bits, d, minX, minY, maxX, maxY uint) (uint, bool) {
+func Morton2DPrevInBox(bits uint, d, minX, minY, maxX, maxY uint64) (uint64, bool) {
+	checkBits(bits, 2)
 	minX, maxX, okX := clampAxis(bits, minX, maxX)
 	minY, maxY, okY := clampAxis(bits, minY, maxY)
 	if !okX || !okY {
@@ -46,7 +48,8 @@ func Morton2DPrevInBox(bits, d, minX, minY, maxX, maxY uint) (uint, bool) {
 }
 
 // Morton3DNextInBox is the 3D equivalent of Morton2DNextInBox.
-func Morton3DNextInBox(bits, d, minX, minY, minZ, maxX, maxY, maxZ uint) (uint, bool) {
+func Morton3DNextInBox(bits uint, d, minX, minY, minZ, maxX, maxY, maxZ uint64) (uint64, bool) {
+	checkBits(bits, 3)
 	minX, maxX, okX := clampAxis(bits, minX, maxX)
 	minY, maxY, okY := clampAxis(bits, minY, maxY)
 	minZ, maxZ, okZ := clampAxis(bits, minZ, maxZ)
@@ -60,7 +63,8 @@ func Morton3DNextInBox(bits, d, minX, minY, minZ, maxX, maxY, maxZ uint) (uint, 
 }
 
 // Morton3DPrevInBox is the 3D equivalent of Morton2DPrevInBox.
-func Morton3DPrevInBox(bits, d, minX, minY, minZ, maxX, maxY, maxZ uint) (uint, bool) {
+func Morton3DPrevInBox(bits uint, d, minX, minY, minZ, maxX, maxY, maxZ uint64) (uint64, bool) {
+	checkBits(bits, 3)
 	minX, maxX, okX := clampAxis(bits, minX, maxX)
 	minY, maxY, okY := clampAxis(bits, minY, maxY)
 	minZ, maxZ, okZ := clampAxis(bits, minZ, maxZ)
@@ -76,7 +80,7 @@ func Morton3DPrevInBox(bits, d, minX, minY, minZ, maxX, maxY, maxZ uint) (uint, 
 
 // clampAxis clamps an inclusive axis range to the grid. It returns false if
 // the range is empty or entirely outside the grid.
-func clampAxis(bits, lo, hi uint) (uint, uint, bool) {
+func clampAxis(bits uint, lo, hi uint64) (uint64, uint64, bool) {
 	top := lowMask(bits)
 	if lo > hi || lo > top {
 		return 0, 0, false
@@ -86,8 +90,8 @@ func clampAxis(bits, lo, hi uint) (uint, uint, bool) {
 
 // mortonAxisMasks returns, for each axis, the mask of its bits in a Morton
 // code of dims axes.
-func mortonAxisMasks(dims, bits uint) [3]uint {
-	var masks [3]uint
+func mortonAxisMasks(dims, bits uint) [3]uint64 {
+	var masks [3]uint64
 	for i := range dims * bits {
 		masks[i%dims] |= 1 << i
 	}
@@ -96,12 +100,12 @@ func mortonAxisMasks(dims, bits uint) [3]uint {
 
 // mortonBigMin returns the smallest Morton code greater than d inside the
 // box with corner codes zmin and zmax. d must be outside the box.
-func mortonBigMin(dims, bits, d, zmin, zmax uint) (uint, bool) {
+func mortonBigMin(dims, bits uint, d, zmin, zmax uint64) (uint64, bool) {
 	masks := mortonAxisMasks(dims, bits)
-	var bigmin uint
+	var bigmin uint64
 	var found bool
 	for i := dims*bits - 1; i < dims*bits; i-- {
-		bit := uint(1) << i
+		bit := uint64(1) << i
 		// The lower bits of the same axis as bit.
 		lower := masks[i%dims] & (bit - 1)
 		dBit, minBit, maxBit := d&bit != 0, zmin&bit != 0, zmax&bit != 0
@@ -122,12 +126,12 @@ func mortonBigMin(dims, bits, d, zmin, zmax uint) (uint, bool) {
 
 // mortonLitMax returns the largest Morton code less than d inside the box
 // with corner codes zmin and zmax. d must be outside the box.
-func mortonLitMax(dims, bits, d, zmin, zmax uint) (uint, bool) {
+func mortonLitMax(dims, bits uint, d, zmin, zmax uint64) (uint64, bool) {
 	masks := mortonAxisMasks(dims, bits)
-	var litmax uint
+	var litmax uint64
 	var found bool
 	for i := dims*bits - 1; i < dims*bits; i-- {
-		bit := uint(1) << i
+		bit := uint64(1) << i
 		lower := masks[i%dims] & (bit - 1)
 		dBit, minBit, maxBit := d&bit != 0, zmin&bit != 0, zmax&bit != 0
 		switch {
@@ -151,16 +155,18 @@ func mortonLitMax(dims, bits, d, zmin, zmax uint) (uint, bool) {
 // they still cover every point in the box but may include points outside it.
 // Without a cap, the number of ranges and the work grow with the perimeter
 // of the box.
-func Hilbert2DRanges(bits, minX, minY, maxX, maxY uint, maxRanges int) []Range {
-	return hilbertRanges(bits, []uint{minX, minY}, []uint{maxX, maxY}, maxRanges, func(d uint, p []uint) {
+func Hilbert2DRanges(bits uint, minX, minY, maxX, maxY uint64, maxRanges int) []Range {
+	checkBits(bits, 2)
+	return hilbertRanges(bits, []uint64{minX, minY}, []uint64{maxX, maxY}, maxRanges, func(d uint64, p []uint64) {
 		p[0], p[1] = Hilbert2DDecode(bits, d)
 	})
 }
 
 // Hilbert3DRanges is the 3D equivalent of Hilbert2DRanges for the
 // Hilbert3DEncode curve.
-func Hilbert3DRanges(bits, minX, minY, minZ, maxX, maxY, maxZ uint, maxRanges int) []Range {
-	return hilbertRanges(bits, []uint{minX, minY, minZ}, []uint{maxX, maxY, maxZ}, maxRanges, func(d uint, p []uint) {
+func Hilbert3DRanges(bits uint, minX, minY, minZ, maxX, maxY, maxZ uint64, maxRanges int) []Range {
+	checkBits(bits, 3)
+	return hilbertRanges(bits, []uint64{minX, minY, minZ}, []uint64{maxX, maxY, maxZ}, maxRanges, func(d uint64, p []uint64) {
 		p[0], p[1], p[2] = Hilbert3DDecode(bits, d)
 	})
 }
@@ -168,14 +174,13 @@ func Hilbert3DRanges(bits, minX, minY, minZ, maxX, maxY, maxZ uint, maxRanges in
 // HilbertRanges is the N-dimensional equivalent of Hilbert2DRanges for the
 // HilbertEncode curve. The box is lo[i] <= point[i] <= hi[i]. Each refinement
 // step visits 2^len(lo) children per partially covered cell, so it is meant
-// for low dimensions. It panics if lo and hi differ in length or if
-// len(lo)*bits exceeds the width of uint.
-func HilbertRanges(bits uint, lo, hi []uint, maxRanges int) []Range {
+// for low dimensions. It panics if lo and hi differ in length.
+func HilbertRanges(bits uint, lo, hi []uint64, maxRanges int) []Range {
 	if len(lo) != len(hi) {
 		panic(fmt.Sprintf("spacecurves: box corners have %d and %d dimensions", len(lo), len(hi)))
 	}
-	checkHilbertDims(bits, len(lo))
-	return hilbertRanges(bits, lo, hi, maxRanges, func(d uint, p []uint) {
+	checkBits(bits, len(lo))
+	return hilbertRanges(bits, lo, hi, maxRanges, func(d uint64, p []uint64) {
 		HilbertDecode(bits, d, p)
 	})
 }
@@ -184,13 +189,13 @@ func HilbertRanges(bits uint, lo, hi []uint, maxRanges int) []Range {
 // level at a time. Every aligned block of 2^(dims*k) indices fills an aligned
 // cube of side 2^k, so a block is kept whole if its cube is inside the box,
 // dropped if disjoint, and split into its 2^dims children otherwise.
-func hilbertRanges(bits uint, lo, hi []uint, maxRanges int, decode func(d uint, p []uint)) []Range {
+func hilbertRanges(bits uint, lo, hi []uint64, maxRanges int, decode func(d uint64, p []uint64)) []Range {
 	dims := uint(len(lo))
 	if dims == 0 {
 		return []Range{{0, 0}}
 	}
-	if dims >= uintBits {
-		panic(fmt.Sprintf("spacecurves: Hilbert ranges support fewer than %d dimensions", uintBits))
+	if bits > 0 && dims >= 64 {
+		panic("spacecurves: Hilbert ranges support fewer than 64 dimensions")
 	}
 	lo, hi = slices.Clone(lo), slices.Clone(hi)
 	for i := range lo {
@@ -201,13 +206,13 @@ func hilbertRanges(bits uint, lo, hi []uint, maxRanges int, decode func(d uint, 
 	}
 
 	type block struct {
-		first, last uint
+		first, last uint64
 		full        bool
 	}
-	p := make([]uint, dims)
+	p := make([]uint64, dims)
 	// classify reports whether the cube holding the block at base with side
 	// 2^k intersects the box and whether it lies entirely inside it.
-	classify := func(base, k uint) (bool, bool) {
+	classify := func(base uint64, k uint) (bool, bool) {
 		decode(base, p)
 		side := lowMask(k)
 		full := true
@@ -248,7 +253,7 @@ func hilbertRanges(bits uint, lo, hi []uint, maxRanges int, decode func(d uint, 
 				next = append(next, b)
 				continue
 			}
-			for i := range uint(1) << dims {
+			for i := range uint64(1) << dims {
 				base := b.first + i<<childBits
 				if in, full := classify(base, k-1); in {
 					next = append(next, block{base, base + lowMask(childBits), full})
@@ -272,7 +277,7 @@ func mergeSmallestGaps(r []Range, n int) []Range {
 	for i := range gaps {
 		gaps[i] = i
 	}
-	gapSize := func(i int) uint { return r[i+1].First - r[i].Last }
+	gapSize := func(i int) uint64 { return r[i+1].First - r[i].Last }
 	slices.SortStableFunc(gaps, func(a, b int) int { return cmp.Compare(gapSize(a), gapSize(b)) })
 	closed := make([]bool, len(r)-1)
 	for _, g := range gaps[:len(r)-n] {

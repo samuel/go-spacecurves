@@ -9,12 +9,12 @@ import (
 
 // randomAxis returns a random inclusive axis range that sometimes extends
 // past the grid or is inverted.
-func randomAxis(rnd *rand.Rand, bits uint) (uint, uint) {
+func randomAxis(rnd *rand.Rand, bits uint) (uint64, uint64) {
 	n := uint64(1)<<bits + 2
-	return uint(rnd.Uint64N(n)), uint(rnd.Uint64N(n))
+	return rnd.Uint64N(n), rnd.Uint64N(n)
 }
 
-func inAxis(v, lo, hi uint) bool { return lo <= v && v <= hi }
+func inAxis(v, lo, hi uint64) bool { return lo <= v && v <= hi }
 
 func TestMorton2DInBox(t *testing.T) {
 	const bits = 4
@@ -24,22 +24,22 @@ func TestMorton2DInBox(t *testing.T) {
 		minX, maxX := randomAxis(rnd, bits)
 		minY, maxY := randomAxis(rnd, bits)
 		var in [total]bool
-		for d := range uint(total) {
+		for d := range uint64(total) {
 			x, y := Morton2DDecode(bits, d)
 			in[d] = inAxis(x, minX, maxX) && inAxis(y, minY, maxY)
 		}
-		for d := range uint(total + 2) {
-			wantNext, wantNextOK := uint(0), false
+		for d := range uint64(total + 2) {
+			wantNext, wantNextOK := uint64(0), false
 			for e := d; e < total; e++ {
 				if in[e] {
 					wantNext, wantNextOK = e, true
 					break
 				}
 			}
-			wantPrev, wantPrevOK := uint(0), false
+			wantPrev, wantPrevOK := uint64(0), false
 			for e := int(min(d, total-1)); e >= 0; e-- {
 				if in[e] {
-					wantPrev, wantPrevOK = uint(e), true
+					wantPrev, wantPrevOK = uint64(e), true
 					break
 				}
 			}
@@ -62,22 +62,22 @@ func TestMorton3DInBox(t *testing.T) {
 		minY, maxY := randomAxis(rnd, bits)
 		minZ, maxZ := randomAxis(rnd, bits)
 		var in [total]bool
-		for d := range uint(total) {
+		for d := range uint64(total) {
 			x, y, z := Morton3DDecode(bits, d)
 			in[d] = inAxis(x, minX, maxX) && inAxis(y, minY, maxY) && inAxis(z, minZ, maxZ)
 		}
-		for d := range uint(total + 2) {
-			wantNext, wantNextOK := uint(0), false
+		for d := range uint64(total + 2) {
+			wantNext, wantNextOK := uint64(0), false
 			for e := d; e < total; e++ {
 				if in[e] {
 					wantNext, wantNextOK = e, true
 					break
 				}
 			}
-			wantPrev, wantPrevOK := uint(0), false
+			wantPrev, wantPrevOK := uint64(0), false
 			for e := int(min(d, total-1)); e >= 0; e-- {
 				if in[e] {
-					wantPrev, wantPrevOK = uint(e), true
+					wantPrev, wantPrevOK = uint64(e), true
 					break
 				}
 			}
@@ -92,12 +92,12 @@ func TestMorton3DInBox(t *testing.T) {
 }
 
 func TestMorton2DInBoxMaxBits(t *testing.T) {
-	const bits = uintBits / 2
+	const bits = 32
 	rnd := rand.New(rand.NewPCG(17, 18))
 	for range 1000 {
 		minX, maxX := randomAxis(rnd, bits)
 		minY, maxY := randomAxis(rnd, bits)
-		d := uint(rnd.Uint64())
+		d := rnd.Uint64()
 		next, ok := Morton2DNextInBox(bits, d, minX, minY, maxX, maxY)
 		if !ok {
 			continue
@@ -116,7 +116,7 @@ func TestMorton2DInBoxMaxBits(t *testing.T) {
 
 // checkRanges verifies ranges are sorted, separated by gaps, and cover
 // exactly the indices in the box, or a superset of them when capped.
-func checkRanges(t *testing.T, ranges []Range, total uint, maxRanges int, inBox func(d uint) bool) {
+func checkRanges(t *testing.T, ranges []Range, total uint64, maxRanges int, inBox func(d uint64) bool) {
 	t.Helper()
 	if maxRanges > 0 && len(ranges) > maxRanges {
 		t.Fatalf("Got %d ranges, cap is %d", len(ranges), maxRanges)
@@ -130,7 +130,7 @@ func checkRanges(t *testing.T, ranges []Range, total uint, maxRanges int, inBox 
 		}
 	}
 	for d := range total {
-		_, covered := slices.BinarySearchFunc(ranges, d, func(r Range, d uint) int {
+		_, covered := slices.BinarySearchFunc(ranges, d, func(r Range, d uint64) int {
 			switch {
 			case r.Last < d:
 				return -1
@@ -160,14 +160,14 @@ func TestHilbert2DRanges(t *testing.T) {
 	for range 300 {
 		minX, maxX := randomAxis(rnd, bits)
 		minY, maxY := randomAxis(rnd, bits)
-		inBox := func(d uint) bool {
+		inBox := func(d uint64) bool {
 			x, y := Hilbert2DDecode(bits, d)
 			return inAxis(x, minX, maxX) && inAxis(y, minY, maxY)
 		}
 		for _, maxRanges := range []int{0, 1, 2, 3, 5} {
 			ranges := Hilbert2DRanges(bits, minX, minY, maxX, maxY, maxRanges)
 			checkRanges(t, ranges, 1<<(2*bits), maxRanges, inBox)
-			nd := HilbertRanges(bits, []uint{minX, minY}, []uint{maxX, maxY}, maxRanges)
+			nd := HilbertRanges(bits, []uint64{minX, minY}, []uint64{maxX, maxY}, maxRanges)
 			if !slices.Equal(ranges, nd) {
 				t.Fatalf("Hilbert2DRanges = %v, HilbertRanges = %v", ranges, nd)
 			}
@@ -182,7 +182,7 @@ func TestHilbert3DRanges(t *testing.T) {
 		minX, maxX := randomAxis(rnd, bits)
 		minY, maxY := randomAxis(rnd, bits)
 		minZ, maxZ := randomAxis(rnd, bits)
-		inBox := func(d uint) bool {
+		inBox := func(d uint64) bool {
 			x, y, z := Hilbert3DDecode(bits, d)
 			return inAxis(x, minX, maxX) && inAxis(y, minY, maxY) && inAxis(z, minZ, maxZ)
 		}
@@ -196,13 +196,13 @@ func TestHilbertRangesND(t *testing.T) {
 	rnd := rand.New(rand.NewPCG(23, 24))
 	for dims := 1; dims <= 4; dims++ {
 		nbits := uint(8 / dims)
-		lo, hi := make([]uint, dims), make([]uint, dims)
-		p := make([]uint, dims)
+		lo, hi := make([]uint64, dims), make([]uint64, dims)
+		p := make([]uint64, dims)
 		for range 50 {
 			for i := range dims {
 				lo[i], hi[i] = randomAxis(rnd, nbits)
 			}
-			inBox := func(d uint) bool {
+			inBox := func(d uint64) bool {
 				HilbertDecode(nbits, d, p)
 				for i := range p {
 					if !inAxis(p[i], lo[i], hi[i]) {
@@ -219,9 +219,9 @@ func TestHilbertRangesND(t *testing.T) {
 }
 
 func TestHilbert2DRangesMaxBits(t *testing.T) {
-	const bits = uintBits / 2
-	const top = math.MaxUint >> (uintBits - bits)
-	if got := Hilbert2DRanges(bits, 0, 0, top, top, 0); !slices.Equal(got, []Range{{0, math.MaxUint}}) {
+	const bits = 32
+	const top = math.MaxUint32
+	if got := Hilbert2DRanges(bits, 0, 0, top, top, 0); !slices.Equal(got, []Range{{0, math.MaxUint64}}) {
 		t.Fatalf("Full grid ranges = %v", got)
 	}
 	rnd := rand.New(rand.NewPCG(25, 26))
@@ -239,9 +239,9 @@ func TestHilbert2DRangesMaxBits(t *testing.T) {
 			continue
 		}
 		maxX, maxY = min(maxX, top), min(maxY, top)
-		points := [][2]uint{{minX, minY}, {minX, maxY}, {maxX, minY}, {maxX, maxY}}
+		points := [][2]uint64{{minX, minY}, {minX, maxY}, {maxX, minY}, {maxX, maxY}}
 		for range 100 {
-			points = append(points, [2]uint{minX + uint(rnd.Uint64N(uint64(maxX-minX)+1)), minY + uint(rnd.Uint64N(uint64(maxY-minY)+1))})
+			points = append(points, [2]uint64{minX + rnd.Uint64N(maxX-minX+1), minY + rnd.Uint64N(maxY-minY+1)})
 		}
 		for _, pt := range points {
 			d := Hilbert2DEncode(bits, pt[0], pt[1])
@@ -258,7 +258,7 @@ func TestHilbertRangesPanics(t *testing.T) {
 			t.Fatal("expected panic")
 		}
 	}()
-	HilbertRanges(4, []uint{0, 0}, []uint{1}, 0)
+	HilbertRanges(4, []uint64{0, 0}, []uint64{1}, 0)
 }
 
 func BenchmarkMorton2DNextInBox_16(b *testing.B) {

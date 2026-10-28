@@ -1,19 +1,20 @@
 package spacecurves
 
 // Moore2DEncode encodes a 2D x,y pair into a single value along a Moore
-// curve of the specified number of bits per axis (at most 32 on 64-bit
-// platforms). The Moore curve is a closed loop: the first point (2^(bits-1)-1, 0)
-// and the last point (2^(bits-1), 0) are adjacent.
-func Moore2DEncode(bits, x, y uint) uint {
+// curve of the specified number of bits per axis (at most 32). The Moore
+// curve is a closed loop: the first point (2^(bits-1)-1, 0) and the last
+// point (2^(bits-1), 0) are adjacent.
+func Moore2DEncode(bits uint, x, y uint64) uint64 {
+	checkBits(bits, 2)
 	if bits == 0 {
 		return 0
 	}
-	mask := uint(1)<<bits - 1
-	x &= mask
-	y &= mask
+	m := lowMask(bits)
+	x &= m
+	y &= m
 	// Each quadrant holds a rotated Hilbert curve of order bits-1.
-	h := uint(1) << (bits - 1)
-	var q, u, v uint
+	h := uint64(1) << (bits - 1)
+	var q, u, v uint64
 	switch {
 	case x < h && y < h:
 		q, u, v = 0, y, h-1-x
@@ -29,11 +30,12 @@ func Moore2DEncode(bits, x, y uint) uint {
 
 // Moore2DDecode decodes a value along a Moore curve of the specified number
 // of bits per axis into a 2D x,y pair.
-func Moore2DDecode(bits, d uint) (uint, uint) {
+func Moore2DDecode(bits uint, d uint64) (uint64, uint64) {
+	checkBits(bits, 2)
 	if bits == 0 {
 		return 0, 0
 	}
-	h := uint(1) << (bits - 1)
+	h := uint64(1) << (bits - 1)
 	u, v := Hilbert2DDecode(bits-1, d)
 	switch (d >> (2 * (bits - 1))) & 3 {
 	case 0:

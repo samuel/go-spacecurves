@@ -15,16 +15,14 @@ Implemented curves:
 - Gray-code (Faloutsos), with locality between Morton and Hilbert at about the
   cost of Morton
 
-The generic functions take the number of bits per axis as their first argument.
-On 64-bit platforms this is at most 32 for 2D and 21 for 3D. `HilbertEncode` and
-`HilbertDecode` support any number of dimensions, as long as dimensions × bits
-fits in a `uint`. Fixed-width Morton
-variants (`Morton2DEncode5bit`, `Morton2DEncode16bit`, `Morton3DEncode5bit`,
-`Morton3DEncode10bit`, and their decoders) are faster for those widths.
-`MortonToHilbert2D/3D` and `HilbertToMorton2D/3D` convert directly between
-Morton and Hilbert indices. The 2D conversion's curve is the transpose of
-`Hilbert2DEncode`'s. 3D Hilbert curves are not unique: `Hilbert3DEncode` and
-`MortonToHilbert3D` produce different curves.
+Coordinates and indices are `uint64`. Every function takes the number of bits
+per axis as its first argument, which is at most 32 for 2D and 21 for 3D.
+`HilbertEncode` and `HilbertDecode` support any number of dimensions, as long
+as dimensions × bits is at most 64. Input bits above the curve's width are
+ignored, and a bit count that doesn't fit in 64 bits panics.
+
+`MortonToHilbert2D` and `HilbertToMorton2D` convert directly between Morton
+codes and `Hilbert2DEncode` indices.
 
 Box queries
 -----------
