@@ -10,6 +10,7 @@ curves maintain locality of points to various degrees.
 Implemented curves:
 
 - [Hilbert](https://en.wikipedia.org/wiki/Hilbert_curve)
+- [Moore](https://en.wikipedia.org/wiki/Moore_curve) (a closed-loop variant of Hilbert)
 - [Morton (Z-Order)](https://en.wikipedia.org/wiki/Z-order_curve)
 
 The generic functions take the number of bits per axis as their first argument.

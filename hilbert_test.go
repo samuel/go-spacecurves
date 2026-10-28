@@ -51,16 +51,21 @@ func checkAdjacent2D(t *testing.T, bits, start, end uint, decode func(uint) (uin
 }
 
 func TestDisplayHilbert2D(t *testing.T) {
-	const bits = 5
-	const n = 1 << bits
-	var out [(2 * n) * (2 * n)]byte
-	for i := range len(out) {
+	logCurve2D(t, 5, func(d uint) (uint, uint) { return Hilbert2DDecode(5, d) })
+}
+
+// logCurve2D logs an ASCII rendering of a 2D curve made of unit steps.
+func logCurve2D(t *testing.T, bits uint, decode func(uint) (uint, uint)) {
+	t.Helper()
+	n := uint(1) << bits
+	out := make([]byte, (2*n)*(2*n))
+	for i := range out {
 		out[i] = ' '
 	}
-	out[0] = '+'
-	lastX, lastY := Hilbert2DDecode(bits, 0)
+	lastX, lastY := decode(0)
+	out[lastY*n*4+lastX*2] = '+'
 	for d := uint(1); d < n*n; d++ {
-		x, y := Hilbert2DDecode(bits, d)
+		x, y := decode(d)
 		o := y*n*4 + x*2
 		out[o] = '+'
 		if lastX < x {
