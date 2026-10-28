@@ -26,6 +26,17 @@ Morton and Hilbert indices. The 2D conversion's curve is the transpose of
 `Hilbert2DEncode`'s. 3D Hilbert curves are not unique: `Hilbert3DEncode` and
 `MortonToHilbert3D` produce different curves.
 
+Box queries
+-----------
+
+For spatial indexes stored in curve order:
+
+- `Morton2DNextInBox` / `Morton2DPrevInBox` (and 3D versions) return the next or
+  previous index inside a query box (BIGMIN/LITMAX), so a scan can skip the gaps.
+- `Hilbert2DRanges`, `Hilbert3DRanges`, and `HilbertRanges` (N-D) split a query
+  box into sorted, inclusive index ranges. An optional cap on the number of
+  ranges merges the smallest gaps, trading extra indices for fewer ranges.
+
 License
 -------
 
