@@ -1,3 +1,3 @@
 module samuelks.com/spacecurves
 
-go 1.26
+go 1.24
