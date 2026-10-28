@@ -2,6 +2,7 @@ Space-filling Curves for Go
 ===========================
 
 [![Go Reference](https://pkg.go.dev/badge/samuelks.com/spacecurves.svg)](https://pkg.go.dev/samuelks.com/spacecurves)
+[![CI](https://github.com/samuel/go-spacecurves/actions/workflows/ci.yml/badge.svg)](https://github.com/samuel/go-spacecurves/actions/workflows/ci.yml)
 
 Package spacecurves implements [space-filling curves](https://en.wikipedia.org/wiki/Space-filling_curve)
 to encode/decode multi-dimensional points into single values along a curve. Different
@@ -23,6 +24,17 @@ ignored, and a bit count that doesn't fit in 64 bits panics.
 
 `MortonToHilbert2D` and `HilbertToMorton2D` convert directly between Morton
 codes and `Hilbert2DEncode` indices.
+
+Usage
+-----
+
+```go
+d := spacecurves.Hilbert2DEncode(16, x, y) // 16 bits per axis
+x, y = spacecurves.Hilbert2DDecode(16, d)
+```
+
+See the [package documentation](https://pkg.go.dev/samuelks.com/spacecurves)
+for how to choose a curve and for more examples.
 
 Box queries
 -----------

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The minimum version from go.mod and the latest release.
+        go: [go.mod, stable]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go != 'go.mod' && matrix.go || '' }}
+          go-version-file: ${{ matrix.go == 'go.mod' && 'go.mod' || '' }}
+      - run: go vet ./...
+      - run: go test -race ./...
+      - name: Test on 32-bit
+        run: GOARCH=386 go test ./...
+      - name: Fuzz briefly
+        run: |
+          for f in $(go test -list '^Fuzz' . | grep '^Fuzz'); do
+            go test -run '^$' -fuzz "^$f\$" -fuzztime 10s .
+          done
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.15.0
