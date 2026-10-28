@@ -154,6 +154,70 @@ func TestMergeSmallestGaps(t *testing.T) {
 	}
 }
 
+func TestMorton2DRanges(t *testing.T) {
+	const bits = 4
+	rnd := rand.New(rand.NewPCG(27, 28))
+	for range 300 {
+		minX, maxX := randomAxis(rnd, bits)
+		minY, maxY := randomAxis(rnd, bits)
+		inBox := func(d uint64) bool {
+			x, y := Morton2DDecode(bits, d)
+			return inAxis(x, minX, maxX) && inAxis(y, minY, maxY)
+		}
+		for _, maxRanges := range []int{0, 1, 2, 3, 5} {
+			ranges := Morton2DRanges(bits, minX, minY, maxX, maxY, maxRanges)
+			checkRanges(t, ranges, 1<<(2*bits), maxRanges, inBox)
+			nd := MortonRanges(bits, []uint64{minX, minY}, []uint64{maxX, maxY}, maxRanges)
+			if !slices.Equal(ranges, nd) {
+				t.Fatalf("Morton2DRanges = %v, MortonRanges = %v", ranges, nd)
+			}
+		}
+	}
+}
+
+func TestMorton3DRanges(t *testing.T) {
+	const bits = 3
+	rnd := rand.New(rand.NewPCG(29, 30))
+	for range 200 {
+		minX, maxX := randomAxis(rnd, bits)
+		minY, maxY := randomAxis(rnd, bits)
+		minZ, maxZ := randomAxis(rnd, bits)
+		inBox := func(d uint64) bool {
+			x, y, z := Morton3DDecode(bits, d)
+			return inAxis(x, minX, maxX) && inAxis(y, minY, maxY) && inAxis(z, minZ, maxZ)
+		}
+		for _, maxRanges := range []int{0, 1, 4} {
+			checkRanges(t, Morton3DRanges(bits, minX, minY, minZ, maxX, maxY, maxZ, maxRanges), 1<<(3*bits), maxRanges, inBox)
+		}
+	}
+}
+
+func TestMortonRangesND(t *testing.T) {
+	rnd := rand.New(rand.NewPCG(31, 32))
+	for dims := 1; dims <= 5; dims++ {
+		nbits := uint(10 / dims)
+		lo, hi := make([]uint64, dims), make([]uint64, dims)
+		p := make([]uint64, dims)
+		for range 50 {
+			for i := range dims {
+				lo[i], hi[i] = randomAxis(rnd, nbits)
+			}
+			inBox := func(d uint64) bool {
+				MortonDecode(nbits, d, p)
+				for i := range p {
+					if !inAxis(p[i], lo[i], hi[i]) {
+						return false
+					}
+				}
+				return true
+			}
+			for _, maxRanges := range []int{0, 3} {
+				checkRanges(t, MortonRanges(nbits, lo, hi, maxRanges), 1<<(nbits*uint(dims)), maxRanges, inBox)
+			}
+		}
+	}
+}
+
 func TestHilbert2DRanges(t *testing.T) {
 	const bits = 4
 	rnd := rand.New(rand.NewPCG(19, 20))
@@ -252,13 +316,20 @@ func TestHilbert2DRangesMaxBits(t *testing.T) {
 	}
 }
 
-func TestHilbertRangesPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatal("expected panic")
-		}
-	}()
-	HilbertRanges(4, []uint64{0, 0}, []uint64{1}, 0)
+func TestRangesMismatchedBoxPanics(t *testing.T) {
+	for name, f := range map[string]func([]uint64, []uint64){
+		"HilbertRanges": func(lo, hi []uint64) { HilbertRanges(4, lo, hi, 0) },
+		"MortonRanges":  func(lo, hi []uint64) { MortonRanges(4, lo, hi, 0) },
+	} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%s did not panic", name)
+				}
+			}()
+			f([]uint64{0, 0}, []uint64{1})
+		}()
+	}
 }
 
 func BenchmarkMorton2DNextInBox_16(b *testing.B) {
@@ -270,6 +341,12 @@ func BenchmarkMorton2DNextInBox_16(b *testing.B) {
 func BenchmarkHilbert2DRanges_16(b *testing.B) {
 	for b.Loop() {
 		Hilbert2DRanges(16, 1000, 2000, 1999, 2999, 0)
+	}
+}
+
+func BenchmarkMorton2DRanges_16(b *testing.B) {
+	for b.Loop() {
+		Morton2DRanges(16, 1000, 2000, 1999, 2999, 0)
 	}
 }
 

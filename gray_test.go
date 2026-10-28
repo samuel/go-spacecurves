@@ -90,3 +90,29 @@ func BenchmarkGray3DEncode_10(b *testing.B) {
 		Gray3DEncode(10, 0x2cd, 0x134, 0x3a5)
 	}
 }
+
+func TestGrayND(t *testing.T) {
+	for dims := 1; dims <= 5; dims++ {
+		for nbits := uint(0); nbits*uint(dims) <= 12; nbits++ {
+			total := uint64(1) << (nbits * uint(dims))
+			p := make([]uint64, dims)
+			last := make([]uint64, dims)
+			for d := range total {
+				GrayDecode(nbits, d, p)
+				if got := GrayEncode(nbits, p); got != d {
+					t.Fatalf("dims=%d bits=%d: GrayEncode(GrayDecode(%d)) = %d", dims, nbits, d, got)
+				}
+				if d > 0 {
+					changed := 0
+					for i := range p {
+						changed += bits.OnesCount64(p[i] ^ last[i])
+					}
+					if changed != 1 {
+						t.Fatalf("dims=%d bits=%d: indices %d and %d map to %v and %v, which differ in %d bits", dims, nbits, d-1, d, last, p, changed)
+					}
+				}
+				copy(last, p)
+			}
+		}
+	}
+}

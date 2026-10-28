@@ -37,3 +37,18 @@ func grayDecode(g uint64) uint64 {
 	}
 	return g
 }
+
+// GrayEncode encodes an N-dimensional point into a single value along a
+// Gray-code curve of the specified number of bits per axis. In 2D and 3D it
+// matches Gray2DEncode and Gray3DEncode. The point is not modified.
+func GrayEncode(bits uint, point []uint64) uint64 {
+	return grayDecode(MortonEncode(bits, point))
+}
+
+// GrayDecode decodes a value along a Gray-code curve of the specified number
+// of bits per axis into point, whose length sets the number of dimensions.
+func GrayDecode(bits uint, d uint64, point []uint64) {
+	checkBits(bits, len(point))
+	d &= lowMask(uint(len(point)) * bits)
+	MortonDecode(bits, d^(d>>1), point)
+}

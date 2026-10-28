@@ -18,8 +18,8 @@ Implemented curves:
 
 Coordinates and indices are `uint64`. Every function takes the number of bits
 per axis as its first argument, which is at most 32 for 2D and 21 for 3D.
-`HilbertEncode` and `HilbertDecode` support any number of dimensions, as long
-as dimensions × bits is at most 64. Input bits above the curve's width are
+`HilbertEncode`, `MortonEncode`, `GrayEncode` and their decoders support any
+number of dimensions, as long as dimensions × bits is at most 64. Input bits above the curve's width are
 ignored, and a bit count that doesn't fit in 64 bits panics.
 
 `MortonToHilbert2D` and `HilbertToMorton2D` convert directly between Morton
@@ -43,9 +43,14 @@ For spatial indexes stored in curve order:
 
 - `Morton2DNextInBox` / `Morton2DPrevInBox` (and 3D versions) return the next or
   previous index inside a query box (BIGMIN/LITMAX), so a scan can skip the gaps.
-- `Hilbert2DRanges`, `Hilbert3DRanges`, and `HilbertRanges` (N-D) split a query
-  box into sorted, inclusive index ranges. An optional cap on the number of
+- `Hilbert2DRanges`, `Hilbert3DRanges`, `HilbertRanges` (N-D), and the Morton
+  equivalents split a query box into sorted, inclusive index ranges. An optional cap on the number of
   ranges merges the smallest gaps, trading extra indices for fewer ranges.
+
+Changes
+-------
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 License
 -------

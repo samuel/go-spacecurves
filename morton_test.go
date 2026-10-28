@@ -167,3 +167,21 @@ func BenchmarkMortonToHilbert2D_16(b *testing.B) {
 		MortonToHilbert2D(16, m)
 	}
 }
+
+func TestMortonND(t *testing.T) {
+	rnd := rand.New(rand.NewPCG(5, 6))
+	for dims := 1; dims <= 8; dims++ {
+		for bits := range 64/uint(dims) + 1 {
+			p := make([]uint64, dims)
+			for _, d := range edgeValues(uint(dims)*bits, rnd) {
+				MortonDecode(bits, d, p)
+				if got := MortonEncode(bits, p); got != d {
+					t.Fatalf("dims=%d bits=%d: MortonEncode(MortonDecode(%#x)) = %#x", dims, bits, d, got)
+				}
+				if want := mortonEncodeRef(bits, p...); want != d {
+					t.Fatalf("dims=%d bits=%d: reference encoding of %v = %#x, expected %#x", dims, bits, p, want, d)
+				}
+			}
+		}
+	}
+}

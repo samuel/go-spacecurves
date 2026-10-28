@@ -68,16 +68,27 @@ func FuzzCurve3D(f *testing.F) {
 	})
 }
 
-func FuzzHilbertND(f *testing.F) {
+func FuzzCurveND(f *testing.F) {
 	f.Add(uint8(4), uint8(16), uint64(0x0123456789abcdef))
 	f.Fuzz(func(t *testing.T, dimsB, bitsB uint8, d uint64) {
 		dims := int(dimsB)%8 + 1
 		bits := uint(bitsB) % (64/uint(dims) + 1)
 		p := make([]uint64, dims)
-		HilbertDecode(bits, d, p)
-		if got := HilbertEncode(bits, p); got != d&lowMask(uint(dims)*bits) {
-			t.Fatalf("dims=%d bits=%d: HilbertEncode(HilbertDecode(%#x)) = %#x", dims, bits, d, got)
+		for _, c := range []struct {
+			name   string
+			encode func(uint, []uint64) uint64
+			decode func(uint, uint64, []uint64)
+		}{
+			{"Hilbert", HilbertEncode, HilbertDecode},
+			{"Morton", MortonEncode, MortonDecode},
+			{"Gray", GrayEncode, GrayDecode},
+		} {
+			c.decode(bits, d, p)
+			if got := c.encode(bits, p); got != d&lowMask(uint(dims)*bits) {
+				t.Fatalf("%s dims=%d bits=%d: encode(decode(%#x)) = %#x", c.name, dims, bits, d, got)
+			}
 		}
+		HilbertDecode(bits, d, p)
 		// The next index must be adjacent unless d is the last one.
 		if next := d&lowMask(uint(dims)*bits) + 1; next <= lowMask(uint(dims)*bits) && next != 0 {
 			q := make([]uint64, dims)
@@ -134,16 +145,23 @@ func FuzzMorton2DInBox(f *testing.F) {
 	})
 }
 
-func FuzzHilbert2DRanges(f *testing.F) {
+func FuzzRanges2D(f *testing.F) {
 	f.Add(uint8(3), uint16(0x0201), uint16(0x0605), uint8(0))
 	f.Add(uint8(4), uint16(0x0003), uint16(0x0e0c), uint8(3))
 	f.Fuzz(func(t *testing.T, b uint8, lo, hi uint16, capB uint8) {
 		bits, mn, mx := fuzzBox(b, lo, hi)
 		maxRanges := int(capB % 8)
-		ranges := Hilbert2DRanges(bits, mn[0], mn[1], mx[0], mx[1], maxRanges)
-		checkRanges(t, ranges, 1<<(2*bits), maxRanges, func(d uint64) bool {
-			x, y := Hilbert2DDecode(bits, d)
-			return inAxis(x, mn[0], mx[0]) && inAxis(y, mn[1], mx[1])
-		})
+		for _, c := range []struct {
+			ranges func(uint, uint64, uint64, uint64, uint64, int) []Range
+			decode func(uint, uint64) (uint64, uint64)
+		}{
+			{Hilbert2DRanges, Hilbert2DDecode},
+			{Morton2DRanges, Morton2DDecode},
+		} {
+			checkRanges(t, c.ranges(bits, mn[0], mn[1], mx[0], mx[1], maxRanges), 1<<(2*bits), maxRanges, func(d uint64) bool {
+				x, y := c.decode(bits, d)
+				return inAxis(x, mn[0], mx[0]) && inAxis(y, mn[1], mx[1])
+			})
+		}
 	})
 }

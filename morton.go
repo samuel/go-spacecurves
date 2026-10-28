@@ -117,3 +117,46 @@ func HilbertToMorton2D(bits uint, hilbert uint64) uint64 {
 	}
 	return swapMorton2D(morton)
 }
+
+// MortonEncode encodes an N-dimensional point into a single value along a
+// Z-order curve of the specified number of bits per axis. Bit i of point[k]
+// becomes bit i*len(point)+k of the index, so in 2D and 3D it matches
+// Morton2DEncode and Morton3DEncode. The point is not modified.
+func MortonEncode(bits uint, point []uint64) uint64 {
+	checkBits(bits, len(point))
+	switch len(point) {
+	case 2:
+		return Morton2DEncode(bits, point[0], point[1])
+	case 3:
+		return Morton3DEncode(bits, point[0], point[1], point[2])
+	}
+	dims := uint(len(point))
+	var d uint64
+	for i := range bits {
+		for k, v := range point {
+			d |= (v >> i & 1) << (i*dims + uint(k))
+		}
+	}
+	return d
+}
+
+// MortonDecode decodes a value along a Z-order curve of the specified number
+// of bits per axis into point, whose length sets the number of dimensions.
+func MortonDecode(bits uint, d uint64, point []uint64) {
+	checkBits(bits, len(point))
+	switch len(point) {
+	case 2:
+		point[0], point[1] = Morton2DDecode(bits, d)
+		return
+	case 3:
+		point[0], point[1], point[2] = Morton3DDecode(bits, d)
+		return
+	}
+	dims := uint(len(point))
+	clear(point)
+	for i := range bits {
+		for k := range point {
+			point[k] |= (d >> (i*dims + uint(k)) & 1) << i
+		}
+	}
+}

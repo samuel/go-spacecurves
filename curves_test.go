@@ -125,6 +125,8 @@ func TestGolden(t *testing.T) {
 		{"Gray2DEncode", Gray2DEncode(32, x2, y2), 0x7f82778a5fa257aa},
 		{"Gray3DEncode", Gray3DEncode(21, x3, y3, z3), 0x6dcb22925b2b92b4},
 		{"MortonToHilbert2D", MortonToHilbert2D(32, Morton2DEncode(32, x2, y2)), 0xeac2e2604ae268c0},
+		{"MortonEncode", MortonEncode(16, []uint64{0x1234, 0xabcd, 0x0f0f, 0xffff}), 0xa8a9ecfeaa99efce},
+		{"GrayEncode", GrayEncode(16, []uint64{0x1234, 0xabcd, 0x0f0f, 0xffff}), 0xcf3148ab33114a8b},
 	} {
 		if tc.got != tc.want {
 			t.Errorf("%s = %#x, expected %#x", tc.name, tc.got, tc.want)
@@ -157,6 +159,13 @@ func TestTooManyBitsPanics(t *testing.T) {
 		"Hilbert2DRanges":   func() { Hilbert2DRanges(33, 0, 0, 0, 0, 0) },
 		"Hilbert3DRanges":   func() { Hilbert3DRanges(22, 0, 0, 0, 0, 0, 0, 0) },
 		"HilbertRanges":     func() { HilbertRanges(22, make([]uint64, 3), make([]uint64, 3), 0) },
+		"MortonEncode":      func() { MortonEncode(13, make([]uint64, 5)) },
+		"MortonDecode":      func() { MortonDecode(13, 0, make([]uint64, 5)) },
+		"GrayEncode":        func() { GrayEncode(13, make([]uint64, 5)) },
+		"GrayDecode":        func() { GrayDecode(13, 0, make([]uint64, 5)) },
+		"Morton2DRanges":    func() { Morton2DRanges(33, 0, 0, 0, 0, 0) },
+		"Morton3DRanges":    func() { Morton3DRanges(22, 0, 0, 0, 0, 0, 0, 0) },
+		"MortonRanges":      func() { MortonRanges(13, make([]uint64, 5), make([]uint64, 5), 0) },
 	} {
 		func() {
 			defer func() {
@@ -187,12 +196,23 @@ func TestIgnoresHighBits(t *testing.T) {
 	x7, y7, z7 := Gray3DDecode(bits, hi|0x5a)
 	p := make([]uint64, 2)
 	HilbertDecode(bits, hi|0x5a, p)
+	m4, m4Want := make([]uint64, 4), make([]uint64, 4)
+	MortonDecode(bits, hi<<20|0x5a5a, m4)
+	MortonDecode(bits, 0x5a5a, m4Want)
+	g4, g4Want := make([]uint64, 4), make([]uint64, 4)
+	GrayDecode(bits, hi<<20|0x5a5a, g4)
+	GrayDecode(bits, 0x5a5a, g4Want)
+	if !slices.Equal(m4, m4Want) || !slices.Equal(g4, g4Want) {
+		t.Errorf("MortonDecode/GrayDecode with high bits = %v/%v, expected %v/%v", m4, g4, m4Want, g4Want)
+	}
 	cases := []tc{
 		{"Morton2DEncode", Morton2DEncode(bits, hi|3, hi|5), Morton2DEncode(bits, 3, 5)},
 		{"Morton3DEncode", Morton3DEncode(bits, hi|3, hi|5, hi|6), Morton3DEncode(bits, 3, 5, 6)},
 		{"Hilbert2DEncode", Hilbert2DEncode(bits, hi|3, hi|5), Hilbert2DEncode(bits, 3, 5)},
 		{"Hilbert3DEncode", Hilbert3DEncode(bits, hi|3, hi|5, hi|6), Hilbert3DEncode(bits, 3, 5, 6)},
 		{"HilbertEncode", HilbertEncode(bits, []uint64{hi | 3, hi | 5}), HilbertEncode(bits, []uint64{3, 5})},
+		{"MortonEncode", MortonEncode(bits, []uint64{hi | 3, hi | 5, hi | 6, hi | 9}), MortonEncode(bits, []uint64{3, 5, 6, 9})},
+		{"GrayEncode", GrayEncode(bits, []uint64{hi | 3, hi | 5, hi | 6, hi | 9}), GrayEncode(bits, []uint64{3, 5, 6, 9})},
 		{"Moore2DEncode", Moore2DEncode(bits, hi|3, hi|5), Moore2DEncode(bits, 3, 5)},
 		{"Gray2DEncode", Gray2DEncode(bits, hi|3, hi|5), Gray2DEncode(bits, 3, 5)},
 		{"Gray3DEncode", Gray3DEncode(bits, hi|3, hi|5, hi|6), Gray3DEncode(bits, 3, 5, 6)},

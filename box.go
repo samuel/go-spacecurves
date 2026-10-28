@@ -157,7 +157,7 @@ func mortonLitMax(dims, bits uint, d, zmin, zmax uint64) (uint64, bool) {
 // of the box.
 func Hilbert2DRanges(bits uint, minX, minY, maxX, maxY uint64, maxRanges int) []Range {
 	checkBits(bits, 2)
-	return hilbertRanges(bits, []uint64{minX, minY}, []uint64{maxX, maxY}, maxRanges, func(d uint64, p []uint64) {
+	return curveRanges(bits, []uint64{minX, minY}, []uint64{maxX, maxY}, maxRanges, func(d uint64, p []uint64) {
 		p[0], p[1] = Hilbert2DDecode(bits, d)
 	})
 }
@@ -166,7 +166,7 @@ func Hilbert2DRanges(bits uint, minX, minY, maxX, maxY uint64, maxRanges int) []
 // Hilbert3DEncode curve.
 func Hilbert3DRanges(bits uint, minX, minY, minZ, maxX, maxY, maxZ uint64, maxRanges int) []Range {
 	checkBits(bits, 3)
-	return hilbertRanges(bits, []uint64{minX, minY, minZ}, []uint64{maxX, maxY, maxZ}, maxRanges, func(d uint64, p []uint64) {
+	return curveRanges(bits, []uint64{minX, minY, minZ}, []uint64{maxX, maxY, maxZ}, maxRanges, func(d uint64, p []uint64) {
 		p[0], p[1], p[2] = Hilbert3DDecode(bits, d)
 	})
 }
@@ -176,26 +176,60 @@ func Hilbert3DRanges(bits uint, minX, minY, minZ, maxX, maxY, maxZ uint64, maxRa
 // step visits 2^len(lo) children per partially covered cell, so it is meant
 // for low dimensions. It panics if lo and hi differ in length.
 func HilbertRanges(bits uint, lo, hi []uint64, maxRanges int) []Range {
-	if len(lo) != len(hi) {
-		panic(fmt.Sprintf("spacecurves: box corners have %d and %d dimensions", len(lo), len(hi)))
-	}
-	checkBits(bits, len(lo))
-	return hilbertRanges(bits, lo, hi, maxRanges, func(d uint64, p []uint64) {
+	checkBox(bits, lo, hi)
+	return curveRanges(bits, lo, hi, maxRanges, func(d uint64, p []uint64) {
 		HilbertDecode(bits, d, p)
 	})
 }
 
-// hilbertRanges finds the ranges covering a box by refining the curve one
-// level at a time. Every aligned block of 2^(dims*k) indices fills an aligned
-// cube of side 2^k, so a block is kept whole if its cube is inside the box,
-// dropped if disjoint, and split into its 2^dims children otherwise.
-func hilbertRanges(bits uint, lo, hi []uint64, maxRanges int, decode func(d uint64, p []uint64)) []Range {
+// Morton2DRanges is the equivalent of Hilbert2DRanges for the Morton2DEncode
+// curve. Morton order usually needs more ranges than Hilbert order for the
+// same box.
+func Morton2DRanges(bits uint, minX, minY, maxX, maxY uint64, maxRanges int) []Range {
+	checkBits(bits, 2)
+	return curveRanges(bits, []uint64{minX, minY}, []uint64{maxX, maxY}, maxRanges, func(d uint64, p []uint64) {
+		p[0], p[1] = Morton2DDecode(bits, d)
+	})
+}
+
+// Morton3DRanges is the 3D equivalent of Morton2DRanges for the
+// Morton3DEncode curve.
+func Morton3DRanges(bits uint, minX, minY, minZ, maxX, maxY, maxZ uint64, maxRanges int) []Range {
+	checkBits(bits, 3)
+	return curveRanges(bits, []uint64{minX, minY, minZ}, []uint64{maxX, maxY, maxZ}, maxRanges, func(d uint64, p []uint64) {
+		p[0], p[1], p[2] = Morton3DDecode(bits, d)
+	})
+}
+
+// MortonRanges is the N-dimensional equivalent of Morton2DRanges for the
+// MortonEncode curve, with the same box and limits as HilbertRanges.
+func MortonRanges(bits uint, lo, hi []uint64, maxRanges int) []Range {
+	checkBox(bits, lo, hi)
+	return curveRanges(bits, lo, hi, maxRanges, func(d uint64, p []uint64) {
+		MortonDecode(bits, d, p)
+	})
+}
+
+// checkBox panics if the box corners differ in length or have too many bits.
+func checkBox(bits uint, lo, hi []uint64) {
+	if len(lo) != len(hi) {
+		panic(fmt.Sprintf("spacecurves: box corners have %d and %d dimensions", len(lo), len(hi)))
+	}
+	checkBits(bits, len(lo))
+}
+
+// curveRanges finds the ranges covering a box by refining the curve one
+// level at a time. On the Hilbert and Morton curves every aligned block of
+// 2^(dims*k) indices fills an aligned cube of side 2^k, so a block is kept
+// whole if its cube is inside the box, dropped if disjoint, and split into its
+// 2^dims children otherwise.
+func curveRanges(bits uint, lo, hi []uint64, maxRanges int, decode func(d uint64, p []uint64)) []Range {
 	dims := uint(len(lo))
 	if dims == 0 {
 		return []Range{{0, 0}}
 	}
 	if bits > 0 && dims >= 64 {
-		panic("spacecurves: Hilbert ranges support fewer than 64 dimensions")
+		panic("spacecurves: ranges support fewer than 64 dimensions")
 	}
 	lo, hi = slices.Clone(lo), slices.Clone(hi)
 	for i := range lo {
