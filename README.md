@@ -12,6 +12,8 @@ Implemented curves:
 - [Hilbert](https://en.wikipedia.org/wiki/Hilbert_curve)
 - [Moore](https://en.wikipedia.org/wiki/Moore_curve) (a closed-loop variant of Hilbert)
 - [Morton (Z-Order)](https://en.wikipedia.org/wiki/Z-order_curve)
+- Gray-code (Faloutsos), with locality between Morton and Hilbert at about the
+  cost of Morton
 
 The generic functions take the number of bits per axis as their first argument.
 On 64-bit platforms this is at most 32 for 2D and 21 for 3D. `HilbertEncode` and
